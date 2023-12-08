@@ -13,34 +13,80 @@ const userInterface = readline.createInterface({
     output: process.stdout,
 });
 
-userInterface.prompt();
+const languages = ["python", "java", "c++"]; // Supported target languages
+const vulnerabilities = [
+    "sql injection",
+    "xss", // Cross-Site Scripting
+    "directory traversal",
+    // Add more vulnerabilities as needed...
+];
 
-userInterface.on("line", async (input) => {
-    try {
-        const translatedCode = await translateCode(input);
-        console.log("Translated Code:");
-        console.log(translatedCode);
-    } catch (error) {
-        console.error("Error:", error);
-    }
+function promptUser() {
+    userInterface.question("Enter the code to translate: ", async (input) => {
+        try {
+            const targetLanguage = await selectTargetLanguage();
+            const translatedCode = await translateCode(input, targetLanguage);
 
-    userInterface.prompt();
-});
+            console.log("\nTranslated Code:");
+            console.log(translatedCode);
 
-async function translateCode(inputCode) {
-    // Define the target language you want to translate to (e.g., Java).
-    const targetLanguage = "java";
+            const foundVulnerabilities = checkForVulnerabilities(translatedCode);
+            if (foundVulnerabilities.length > 0) {
+                console.log("\nDetected vulnerabilities:");
+                foundVulnerabilities.forEach((vulnerability) => {
+                    console.log(vulnerability);
+                });
+            } else {
+                console.log("\nNo vulnerabilities detected.");
+            }
+        } catch (error) {
+            console.error("Error:", error);
+        }
 
-    // Create a chat conversation with user input and target language.
+        promptUser();
+    });
+}
+
+function selectTargetLanguage() {
+    return new Promise((resolve, reject) => {
+        userInterface.question(
+            `Select target language (${languages.join(', ')}): `,
+            (selectedLanguage) => {
+                const language = selectedLanguage.toLowerCase();
+                if (languages.includes(language)) {
+                    resolve(language);
+                } else {
+                    reject(`Unsupported language: ${selectedLanguage}`);
+                }
+            }
+        );
+    });
+}
+
+async function translateCode(inputCode, targetLanguage) {
     const chatCompletion = await openai.chat.completions.create({
-        model: "text-davinci-002", // You can adjust the model as needed.
+        model: "text-davinci-002",
         messages: [
             { role: "user", content: inputCode },
             { role: "assistant", content: `Translate this code to ${targetLanguage}` },
         ],
     });
 
-    // Extract and return the translated code.
-    const translatedCode = chatCompletion.choices[0].message.content;
-    return translatedCode;
+    return chatCompletion.choices[0].message.content;
 }
+
+function checkForVulnerabilities(code) {
+    const foundVulnerabilities = [];
+    vulnerabilities.forEach((vulnerability) => {
+        if (code.toLowerCase().includes(vulnerability)) {
+            foundVulnerabilities.push(vulnerability);
+        }
+    });
+    return foundVulnerabilities;
+}
+
+console.log("Welcome to Code Translator and Vulnerability Checker");
+console.log("You can translate code between Python, Java, and C++.");
+console.log("Type 'exit' to quit.");
+
+promptUser();
